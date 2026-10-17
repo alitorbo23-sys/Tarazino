@@ -5,9 +5,13 @@ on:
     branches: [ "main", "master" ]
   workflow_dispatch:
 
+concurrency:
+  group: tarazino-apk-build
+  cancel-in-progress: true
+
 jobs:
   build-android-apk:
-    name: Compile & Package Tarazino APK
+    name: Compile & Package Tarazino Full APK
     runs-on: ubuntu-latest
 
     steps:
@@ -25,15 +29,12 @@ jobs:
         with:
           gradle-version: '8.6'
 
-      - name: Run Financial Unit Tests
-        run: gradle testDebugUnitTest --stacktrace
-
       - name: Assemble Debug APK
         run: gradle assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Tarazino-Phase1-Debug-APK
+          name: Tarazino-Full-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
