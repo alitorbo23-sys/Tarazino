@@ -46,7 +46,6 @@ import java.text.DecimalFormat
 import java.util.Calendar
 import kotlin.math.abs
 
-// --- مدل‌ها و پایگاه داده محلی Room ---
 enum class TxType(val titleFa: String) {
     INCOME("درآمد"),
     EXPENSE("هزینه"),
@@ -155,7 +154,6 @@ abstract class AppDb : RoomDatabase() {
     abstract fun dao(): AppDao
 }
 
-// --- ابزار فرمت پول و تاریخ شمسی ---
 fun formatMoney(rials: Long, useToman: Boolean = true, persianDigits: Boolean = true, hide: Boolean = false): String {
     val unit = if (useToman) "تومان" else "ریال"
     if (hide) return "****** $unit"
@@ -207,18 +205,16 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun TarazinoMainApp(dao: AppDao) {
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
     val accounts by dao.observeAccounts().collectAsState(initial = emptyList())
     val transactions by dao.observeTransactions().collectAsState(initial = emptyList())
     val docs by dao.observeDocs().collectAsState(initial = emptyList())
 
-    // تنظیمات ظاهری و تم‌ها (۱. تیره لوکس، ۲. روشن مینیمال، ۳. اختصاصی)
-    var themeMode by remember { mutableIntStateOf(0) } // 0: Dark Luxury, 1: Minimal Light, 2: Custom Royal
+    var themeMode by remember { mutableIntStateOf(0) }
     var useToman by remember { mutableStateOf(true) }
     var persianDigits by remember { mutableStateOf(true) }
     var hideAmounts by remember { mutableStateOf(false) }
 
-    var currentTab by remember { mutableIntStateOf(0) } // 0:Home, 1:Tx, 2:Docs, 3:Biz, 4:Reports
+    var currentTab by remember { mutableIntStateOf(0) }
     var searchQuery by remember { mutableStateOf("") }
 
     var showAddTxDialog by remember { mutableStateOf(false) }
@@ -312,7 +308,6 @@ fun TarazinoMainApp(dao: AppDao) {
                 val activeAccs = accounts.filter { if (isBizMode) it.isBusiness else !it.isBusiness }
                 val activeTxs = transactions.filter { if (isBizMode) it.isBusiness else !it.isBusiness }
                 val totalBalance = activeAccs.sumOf { it.balanceRials }
-                // طبق قانون حسابداری: انتقال بین حساب‌ها در درآمد یا هزینه جمع نمی‌شود
                 val totalIncome = activeTxs.filter { it.type == TxType.INCOME }.sumOf { it.amountRials }
                 val totalExpense = activeTxs.filter { it.type == TxType.EXPENSE }.sumOf { it.amountRials }
 
@@ -324,7 +319,6 @@ fun TarazinoMainApp(dao: AppDao) {
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    // --- تب ۲: اسناد و پیوست‌ها ---
                     if (currentTab == 2) {
                         item {
                             var docTitle by remember { mutableStateOf("") }
@@ -376,7 +370,6 @@ fun TarazinoMainApp(dao: AppDao) {
                             }
                         }
                     } else {
-                        // --- کارت اصلی موجودی و خلاصه مالی در خانه، کسب‌وکار و گزارش‌ها ---
                         item {
                             Surface(
                                 shape = RoundedCornerShape(24.dp),
@@ -409,7 +402,6 @@ fun TarazinoMainApp(dao: AppDao) {
                             }
                         }
 
-                        // نمودار میله‌ای مقایسه درآمد و هزینه در خانه و گزارش‌ها
                         if (currentTab == 0 || currentTab == 4) {
                             item {
                                 val maxVal = maxOf(totalIncome, totalExpense, 1L).toFloat()
@@ -431,7 +423,6 @@ fun TarazinoMainApp(dao: AppDao) {
                             }
                         }
 
-                        // بخش حساب‌ها و کیف پول‌ها یا دکمه بارگذاری داده آزمایشی
                         item {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                 Text("حساب‌ها و کیف پول‌ها", fontWeight = FontWeight.Bold)
@@ -482,7 +473,6 @@ fun TarazinoMainApp(dao: AppDao) {
                             }
                         }
 
-                        // کادر جست‌وجو در تب تراکنش‌ها
                         if (currentTab == 1) {
                             item {
                                 OutlinedTextField(
@@ -507,21 +497,21 @@ fun TarazinoMainApp(dao: AppDao) {
                                 it.personName.contains(searchQuery, ignoreCase = true)
                         }
 
-                        items(displayedTxs) { tx ->
-                            val accName = accounts.find { it.id == tx.accountId }?.name ?: "حساب"
+                        items(displayedTxs) { itemTx ->
+                            val accName = accounts.find { it.id == itemTx.accountId }?.name ?: "حساب"
                             Surface(
                                 shape = RoundedCornerShape(16.dp),
                                 color = MaterialTheme.colorScheme.surface,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable { selectedTxForDetails = tx }
+                                    .clickable { selectedTxForDetails = itemTx }
                             ) {
                                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                        Text(tx.category + " • " + tx.type.titleFa, fontWeight = FontWeight.Bold)
+                                        Text(itemTx.category + " • " + itemTx.type.titleFa, fontWeight = FontWeight.Bold)
                                         Text(
-                                            formatMoney(tx.amountRials, useToman, persianDigits, hideAmounts),
-                                            color = when (tx.type) {
+                                            formatMoney(itemTx.amountRials, useToman, persianDigits, hideAmounts),
+                                            color = when (itemTx.type) {
                                                 TxType.INCOME, TxType.RECEIVABLE -> Color(0xFF10B981)
                                                 TxType.EXPENSE, TxType.DEBT -> Color(0xFFF43F5E)
                                                 TxType.TRANSFER -> Color(0xFF38BDF8)
@@ -529,18 +519,17 @@ fun TarazinoMainApp(dao: AppDao) {
                                             fontWeight = FontWeight.ExtraBold
                                         )
                                     }
-                                    // نمایش کامل توضیحات و شخص مرتبط
-                                    if (tx.description.isNotBlank()) {
-                                        Text("توضیحات: " + tx.description, style = MaterialTheme.typography.bodyMedium)
+                                    if (itemTx.description.isNotBlank()) {
+                                        Text("توضیحات: " + itemTx.description, style = MaterialTheme.typography.bodyMedium)
                                     }
                                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                         Text(
-                                            text = accName + (if (tx.personName.isNotBlank()) " | طرف حساب: ${tx.personName}" else ""),
+                                            text = accName + (if (itemTx.personName.isNotBlank()) " | طرف حساب: " + itemTx.personName else ""),
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                                         )
                                         Text(
-                                            text = toJalaliReadable(tx.timestamp),
+                                            text = toJalaliReadable(itemTx.timestamp),
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.primary
                                         )
@@ -549,25 +538,24 @@ fun TarazinoMainApp(dao: AppDao) {
                             }
                         }
 
-                        item { Spacer(Modifier.height(75.dp)) }
+                        item { Spacer(modifier = Modifier.height(75.dp)) }
                     }
                 }
             }
 
-            // دیالوگ نمایش جزئیات کامل تراکنش و حذف کنترل‌شده با تأیید کاربر
-            selectedTxForDetails?.let { tx ->
+            selectedTxForDetails?.let { itemTx ->
                 AlertDialog(
                     onDismissRequest = { selectedTxForDetails = null },
                     title = { Text("جزئیات کامل تراکنش") },
                     text = {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("نوع: " + tx.type.titleFa, fontWeight = FontWeight.Bold)
-                            Text("دسته‌بندی: " + tx.category)
-                            Text("مبلغ: " + formatMoney(tx.amountRials, useToman, persianDigits, false))
-                            Text("تاریخ شمسی: " + toJalaliReadable(tx.timestamp))
-                            Text("طرف حساب / شخص: " + (tx.personName.ifBlank { "ثبت نشده" }))
+                            Text("نوع: " + itemTx.type.titleFa, fontWeight = FontWeight.Bold)
+                            Text("دسته‌بندی: " + itemTx.category)
+                            Text("مبلغ: " + formatMoney(itemTx.amountRials, useToman, persianDigits, false))
+                            Text("تاریخ شمسی: " + toJalaliReadable(itemTx.timestamp))
+                            Text("طرف حساب / شخص: " + (itemTx.personName.ifBlank { "ثبت نشده" }))
                             Text("توضیحات کامل:
-" + (tx.description.ifBlank { "بدون توضیحات" }))
+" + (itemTx.description.ifBlank { "بدون توضیحات" }))
                         }
                     },
                     confirmButton = {
@@ -576,7 +564,7 @@ fun TarazinoMainApp(dao: AppDao) {
                     dismissButton = {
                         TextButton(
                             onClick = {
-                                scope.launch { dao.deleteTxById(tx.id) }
+                                scope.launch { dao.deleteTxById(itemTx.id) }
                                 selectedTxForDetails = null
                             }
                         ) { Text("حذف تراکنش", color = Color(0xFFF43F5E)) }
@@ -584,7 +572,6 @@ fun TarazinoMainApp(dao: AppDao) {
                 )
             }
 
-            // پنجره تنظیمات، تم‌ها و «درباره ما» (About Us)
             if (showSettingsSheet) {
                 ModalBottomSheet(onDismissRequest = { showSettingsSheet = false }) {
                     Column(
@@ -629,7 +616,6 @@ fun TarazinoMainApp(dao: AppDao) {
 
                         HorizontalDivider()
 
-                        // بخش کامل «درباره ما» و توضیحات برنامه
                         Surface(
                             shape = RoundedCornerShape(16.dp),
                             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
@@ -660,7 +646,6 @@ fun TarazinoMainApp(dao: AppDao) {
                 }
             }
 
-            // دیالوگ ایجاد حساب جدید
             if (showAddAccDialog) {
                 var name by remember { mutableStateOf("") }
                 var typeName by remember { mutableStateOf("حساب بانکی") }
@@ -704,7 +689,6 @@ fun TarazinoMainApp(dao: AppDao) {
                 )
             }
 
-            // دیالوگ ثبت سریع تراکنش با توضیحات کامل و پیشنهاد خودکار دسته‌بندی
             if (showAddTxDialog && accounts.isNotEmpty()) {
                 var amountStr by remember { mutableStateOf("") }
                 var desc by remember { mutableStateOf("") }
@@ -714,7 +698,6 @@ fun TarazinoMainApp(dao: AppDao) {
                 var selectedAccId by remember { mutableLongStateOf(accounts.first().id) }
                 var targetAccId by remember { mutableLongStateOf(accounts.last().id) }
 
-                // پیشنهاد هوشمند آفلاین دسته‌بندی بر اساس توضیحات
                 LaunchedEffect(desc) {
                     if (desc.contains("سوپرمارکت") || desc.contains("نان") || desc.contains("غذا")) cat = "خوراک و سوپرمارکت"
                     else if (desc.contains("اسنپ") || desc.contains("تاکسی") || desc.contains("بنزین")) cat = "حمل‌ونقل"
@@ -787,7 +770,7 @@ fun TarazinoMainApp(dao: AppDao) {
                                             description = desc.trim(),
                                             personName = person.trim(),
                                             accountId = selectedAccId,
-                                            targetAccountId = if (txType == TxType.TRANSFER) targetAccId else null,
+                                            targetAccountId = if (txType == TxType.TRANSFER) targetAccountId else null,
                                             isBusiness = srcAcc?.isBusiness ?: false
                                         )
                                     )
